@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
-import { getMe, login, register } from "../../api";
+import { getMe, login, register, googleLogin } from "../../api";
 
 const initialToken = localStorage.getItem("fashion_girl_token");
 const initialUser = (() => {
@@ -47,6 +47,17 @@ export const loginThunk = createAsyncThunk(
             return await login(payload);
         } catch (error) {
             return rejectWithValue(error.message || "Login failed.");
+        }
+    }
+);
+
+export const googleLoginThunk = createAsyncThunk(
+    "auth/googleLogin",
+    async (payload, { rejectWithValue }) => {
+        try {
+            return await googleLogin(payload);
+        } catch (error) {
+            return rejectWithValue(error.message || "Google Login failed.");
         }
     }
 );
@@ -114,6 +125,21 @@ const authSlice = createSlice({
             .addCase(loginThunk.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload || "Login failed.";
+            })
+            .addCase(googleLoginThunk.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(googleLoginThunk.fulfilled, (state, action) => {
+                state.loading = false;
+                state.token = action.payload.token;
+                state.user = action.payload.user;
+                state.error = null;
+                persistAuth(action.payload.token, action.payload.user);
+            })
+            .addCase(googleLoginThunk.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload || "Google Login failed.";
             })
             .addCase(hydrateUserThunk.pending, (state) => {
                 state.loading = true;

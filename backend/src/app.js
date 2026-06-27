@@ -6,6 +6,9 @@ const morgan = require("morgan");
 const healthRoutes = require("./routes/health");
 const authRoutes = require("./routes/auth");
 const matchRoutes = require("./routes/matchRoutes");
+const orderRoutes = require("./routes/order");
+const chatRoutes = require("./routes/chat");
+const aiChatRoutes = require("./routes/aiChat");
 
 const app = express();
 
@@ -17,6 +20,9 @@ app.use(morgan("dev"));
 app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api", matchRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/ai", aiChatRoutes);
 
 app.use((error, req, res, next) => {
     console.error(error);

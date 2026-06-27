@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 
 const Role = require("../models/Role");
 const User = require("../models/User");
+const Portfolio = require("../models/Portfolio");
 
 const DEFAULT_ROLES = [
     {
@@ -16,6 +17,10 @@ const DEFAULT_ROLES = [
         name: "customer",
         description: "Standard buyer access for storefront usage.",
     },
+    {
+        name: "vendor",
+        description: "Vendor access for managing products and portfolio.",
+    },
 ];
 
 async function seedRoles() {
@@ -28,8 +33,9 @@ async function seedUsers() {
     const adminRole = await Role.findOne({ name: "admin" });
     const staffRole = await Role.findOne({ name: "staff" });
     const customerRole = await Role.findOne({ name: "customer" });
+    const vendorRole = await Role.findOne({ name: "vendor" });
 
-    if (!adminRole || !staffRole || !customerRole) {
+    if (!adminRole || !staffRole || !customerRole || !vendorRole) {
         throw new Error("Required roles missing. Cannot seed users.");
     }
 
@@ -52,6 +58,12 @@ async function seedUsers() {
             password: process.env.SEED_USER_PASSWORD || "user123",
             role: customerRole._id,
         },
+        {
+            name: "Fashion Vendor",
+            email: process.env.SEED_VENDOR_EMAIL || "vendor@gmail.com",
+            password: process.env.SEED_VENDOR_PASSWORD || "vendor123",
+            role: vendorRole._id,
+        },
     ];
 
     for (const seedUser of seedUsers) {
@@ -72,12 +84,42 @@ async function seedUsers() {
     }
 }
 
+async function seedPortfolios() {
+    const defaultVendorEmail = process.env.SEED_VENDOR_EMAIL || "vendor@gmail.com";
+    const portfolios = [
+        {
+            vendorId: defaultVendorEmail,
+            imageUrl: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500",
+            description: "Elegant silk evening gown with lace detail and long sleeves, perfect for weddings and formal parties."
+        },
+        {
+            vendorId: defaultVendorEmail,
+            imageUrl: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=500",
+            description: "Casual cotton linen shirt, breathable lightweight summer shirt with button closure."
+        },
+        {
+            vendorId: defaultVendorEmail,
+            imageUrl: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500",
+            description: "Classic black leather jacket, heavy duty wool lining, modern street style fashion jacket."
+        }
+    ];
+
+    for (const portfolio of portfolios) {
+        const existing = await Portfolio.findOne({ description: portfolio.description });
+        if (!existing) {
+            await Portfolio.create(portfolio);
+        }
+    }
+}
+
 async function runSeed() {
     await seedRoles();
     await seedUsers();
-    console.log("Seed completed: roles and users ensured.");
+    await seedPortfolios();
+    console.log("Seed completed: roles, users, and portfolios ensured.");
 }
 
 module.exports = {
     runSeed,
 };
+

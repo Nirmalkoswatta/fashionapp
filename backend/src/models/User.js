@@ -27,6 +27,10 @@ const userSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        stockMaterials: {
+            type: [String],
+            default: ["Cotton", "Silk", "Linen"],
+        },
     },
     {
         timestamps: true,

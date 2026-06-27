@@ -1,13 +1,15 @@
 import io
 import json
 import re
+import os
+import pickle
 from typing import List, Optional
 
 import clip
 import requests
 import torch
 import torch.nn.functional as f
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -239,6 +241,58 @@ def load_model_once() -> None:
 @app.get("/health")
 def health_check() -> str:
     return "AI service running"
+
+
+@app.head("/health")
+def health_check_head() -> None:
+    return None
+
+
+@app.post("/add-ai-item")
+async def add_ai_item(vendor_id: str = Form(...), file: UploadFile = File(...)):
+    try:
+        # 1. Ensure folder path ./dataset/{vendor_id}/ exists
+        dataset_dir = os.path.join(".", "dataset", vendor_id)
+        os.makedirs(dataset_dir, exist_ok=True)
+
+        # Save physical image file
+        file_path = os.path.join(dataset_dir, file.filename)
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+
+        # 2. Incremental Indexing using CLIP
+        # Load existing vectors or start empty
+        pkl_path = "vendor_vectors.pkl"
+        vectors_dict = {}
+        if os.path.exists(pkl_path):
+            try:
+                with open(pkl_path, "rb") as f_pkl:
+                    vectors_dict = pickle.load(f_pkl)
+            except Exception as e:
+                print(f"Error loading pickle database: {e}. Starting fresh.")
+
+        # Pass the single new image through our CLIP model to get 512-dimension vector
+        # We reuse encode_image(bytes) helper already defined in main.py
+        new_vec = encode_image(content)
+
+        # Add entry: dict[new_image_path] = {"vendor_id": vendor_id, "vector": list}
+        # Using forward slashes for cross-platform compatibility
+        clean_file_path = file_path.replace("\\", "/")
+        vectors_dict[clean_file_path] = {
+            "vendor_id": vendor_id,
+            "vector": new_vec.numpy().tolist()
+        }
+
+        # Re-save the pickle file
+        with open(pkl_path, "wb") as f_pkl:
+            pickle.dump(vectors_dict, f_pkl)
+
+        print(f"Successfully incrementally indexed {file.filename} for vendor {vendor_id}")
+        return {"message": "Incremental indexing complete.", "image_path": clean_file_path}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Incremental AI indexing failed: {str(e)}")
 
 
 def _validate_match_payload(text: Optional[str], portfolio: Optional[List[PortfolioItem]]) -> None:
