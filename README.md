@@ -1,4 +1,4 @@
-# Fashion Girl Monorepo
+# Fashion Girl Monorepo  
 
 A clean full-stack starter for an AI-based e-commerce platform.
 
