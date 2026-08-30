@@ -61,13 +61,38 @@ export function createOrder(token, payload) {
     });
 }
 
-export function payOrder(token, id, paymentMethod) {
-    return request(`/orders/${id}/pay`, {
+/**
+ * Step 1 of PayHere checkout:
+ * Creates a PayHere payment session on the backend.
+ * Returns { checkoutUrl, formFields } which the frontend uses to redirect the customer.
+ */
+export function createPayment(token, orderId) {
+    return request("/payment/create-payment", {
         method: "POST",
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ paymentMethod }),
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ orderId }),
+    });
+}
+
+/**
+ * Polls the backend to check if PayHere has already called the notify_url
+ * and updated the order status to "paid".
+ */
+export function getPaymentStatus(token, orderId) {
+    return request(`/payment/status/${orderId}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+    });
+}
+
+/**
+ * Cash on Delivery: confirms the order without going through PayHere.
+ */
+export function confirmCOD(token, orderId) {
+    return request("/payment/cod", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ orderId }),
     });
 }
 

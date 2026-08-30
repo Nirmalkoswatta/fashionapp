@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { getOrders, payOrder, updateOrderStatus, getVendors, createOrder } from "../api";
+import { getOrders, updateOrderStatus, getVendors, createOrder, confirmCOD } from "../api";
 import MannequinSketch from "./MannequinSketch";
+import PaymentGateway from "./PaymentGateway";
 
 const AVAILABLE_MATERIALS = [
     "Cotton",
@@ -42,9 +43,6 @@ function Orders() {
 
     // Payment Gateway Modal State
     const [activePaymentOrder, setActivePaymentOrder] = useState(null);
-    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("card");
-    const [cardDetails, setCardDetails] = useState({ cardNumber: "", cardExpiry: "", cardCvv: "", cardHolder: "" });
-    const [gatewayError, setGatewayError] = useState("");
 
     const fetchOrders = async () => {
         try {
@@ -77,47 +75,10 @@ function Orders() {
         }
     }, [token, user]);
 
-    const handlePaymentSubmit = async (e) => {
-        e.preventDefault();
-        if (!activePaymentOrder) return;
-
-        setGatewayError("");
-        const orderId = activePaymentOrder._id;
-
-        if (selectedPaymentMethod === "card") {
-            const { cardNumber, cardExpiry, cardCvv, cardHolder } = cardDetails;
-            if (!cardNumber.trim() || cardNumber.replace(/\D/g, "").length < 16) {
-                setGatewayError("Please enter a valid 16-digit card number.");
-                return;
-            }
-            if (!cardExpiry.trim() || !/^\d{2}\/\d{2}$/.test(cardExpiry.trim())) {
-                setGatewayError("Please enter a valid expiry date in MM/YY format.");
-                return;
-            }
-            if (!cardCvv.trim() || cardCvv.replace(/\D/g, "").length < 3) {
-                setGatewayError("Please enter a valid 3 or 4 digit CVV.");
-                return;
-            }
-            if (!cardHolder.trim()) {
-                setGatewayError("Please enter the cardholder's name.");
-                return;
-            }
-        }
-
-        try {
-            setActionLoading(orderId);
-            setError("");
-            setSuccessMsg("");
-
-            const data = await payOrder(token, orderId, selectedPaymentMethod);
-            setSuccessMsg(`Payment completed! Secure platform payment receipt ID: ${data.order._id}`);
-            setActivePaymentOrder(null);
-            fetchOrders();
-        } catch (err) {
-            setGatewayError(err.message || "Payment processing failed.");
-        } finally {
-            setActionLoading(null);
-        }
+    const handlePaymentSuccess = (updatedOrder) => {
+        setActivePaymentOrder(null);
+        setSuccessMsg(`Payment confirmed! Order #${updatedOrder._id.slice(-8).toUpperCase()} is now paid and in the queue.`);
+        fetchOrders();
     };
 
     const handleStatusChange = async (orderId, newStatus) => {
@@ -633,14 +594,9 @@ function Orders() {
                                         <button
                                             className="primary-btn pay-btn"
                                             disabled={actionLoading === order._id}
-                                            onClick={() => {
-                                                setActivePaymentOrder(order);
-                                                setSelectedPaymentMethod("card");
-                                                setCardDetails({ cardNumber: "", cardExpiry: "", cardCvv: "", cardHolder: "" });
-                                                setGatewayError("");
-                                            }}
+                                            onClick={() => setActivePaymentOrder(order)}
                                         >
-                                            Pay Now (${order.amount.toFixed(2)})
+                                            💳 Pay Now (LKR {order.amount.toFixed(2)})
                                         </button>
                                     ) : (
                                         <div className="payment-receipt-info">
@@ -813,213 +769,13 @@ function Orders() {
                 </div>
             )}
 
-            {/* Payment Gateway Modal */}
+            {/* PayHere Payment Gateway Modal */}
             {activePaymentOrder && (
-                <div
-                    className="modal-overlay"
-                    style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: "rgba(0,0,0,0.5)",
-                        zIndex: 1000,
-                        padding: "1rem"
-                    }}
-                >
-                    <div
-                        className="modal-content"
-                        style={{
-                            backgroundColor: "var(--paper)",
-                            padding: "2rem",
-                            borderRadius: "var(--radius)",
-                            maxWidth: "500px",
-                            width: "100%",
-                            boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
-                            animation: "rise 300ms ease-out"
-                        }}
-                    >
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                borderBottom: "1px solid var(--line)",
-                                paddingBottom: "0.8rem",
-                                marginBottom: "1.2rem"
-                            }}
-                        >
-                            <h2 style={{ margin: 0, fontSize: "1.3rem" }}>Secure Checkout Gateway</h2>
-                            <button
-                                className="secondary-btn"
-                                onClick={() => {
-                                    setActivePaymentOrder(null);
-                                    setGatewayError("");
-                                }}
-                                style={{ padding: "0.2rem 0.6rem", fontSize: "0.85rem" }}
-                            >
-                                Cancel
-                            </button>
-                        </div>
-
-                        <div style={{ marginBottom: "1.2rem", backgroundColor: "rgba(35, 24, 21, 0.03)", padding: "0.8rem 1rem", borderRadius: "12px", fontSize: "0.9rem" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.4rem" }}>
-                                <span>Order Reference:</span>
-                                <strong>#{activePaymentOrder._id}</strong>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.4rem" }}>
-                                <span>Quantity:</span>
-                                <strong>{activePaymentOrder.quantity || 1}</strong>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span>Total Amount to Pay:</span>
-                                <strong style={{ color: "var(--accent-deep)", fontSize: "1.1rem" }}>${activePaymentOrder.amount?.toFixed(2)}</strong>
-                            </div>
-                        </div>
-
-                        {gatewayError && (
-                            <p className="form-error" style={{ marginTop: "0", marginBottom: "1rem" }}>
-                                {gatewayError}
-                            </p>
-                        )}
-
-                        <form onSubmit={handlePaymentSubmit}>
-                            {/* Payment Method Tabs */}
-                            <label className="section-label" style={{ marginBottom: "0.6rem" }}>Choose Payment Method</label>
-                            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.2rem" }}>
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedPaymentMethod("card")}
-                                    style={{
-                                        flex: 1,
-                                        padding: "0.8rem",
-                                        borderRadius: "12px",
-                                        border: selectedPaymentMethod === "card" ? "2px solid var(--accent)" : "1px solid var(--line)",
-                                        background: selectedPaymentMethod === "card" ? "rgba(239, 71, 111, 0.06)" : "#ffffff",
-                                        fontWeight: "750",
-                                        color: selectedPaymentMethod === "card" ? "var(--accent-deep)" : "var(--muted)",
-                                        cursor: "pointer"
-                                    }}
-                                >
-                                    💳 Visa / Card
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedPaymentMethod("cod")}
-                                    style={{
-                                        flex: 1,
-                                        padding: "0.8rem",
-                                        borderRadius: "12px",
-                                        border: selectedPaymentMethod === "cod" ? "2px solid var(--accent)" : "1px solid var(--line)",
-                                        background: selectedPaymentMethod === "cod" ? "rgba(239, 71, 111, 0.06)" : "#ffffff",
-                                        fontWeight: "750",
-                                        color: selectedPaymentMethod === "cod" ? "var(--accent-deep)" : "var(--muted)",
-                                        cursor: "pointer"
-                                    }}
-                                >
-                                    💵 Cash on Delivery
-                                </button>
-                            </div>
-
-                            {/* Visa Inputs */}
-                            {selectedPaymentMethod === "card" && (
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem", marginBottom: "1.2rem" }}>
-                                    <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem", fontSize: "0.82rem", fontWeight: "600" }}>
-                                        Cardholder Name
-                                        <input
-                                            type="text"
-                                            placeholder="e.g. Nirmal Koswatta"
-                                            value={cardDetails.cardHolder}
-                                            onChange={(e) => setCardDetails(prev => ({ ...prev, cardHolder: e.target.value }))}
-                                            style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "0.55rem 0.75rem", font: "inherit", outline: "none" }}
-                                            required={selectedPaymentMethod === "card"}
-                                        />
-                                    </label>
-                                    <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem", fontSize: "0.82rem", fontWeight: "600" }}>
-                                        Card Number (Visa)
-                                        <input
-                                            type="text"
-                                            maxLength="19"
-                                            placeholder="4111 2222 3333 4444"
-                                            value={cardDetails.cardNumber}
-                                            onChange={(e) => {
-                                                const v = e.target.value.replace(/\D/g, '').substring(0, 16);
-                                                const matches = v.match(/\d{4,16}/g);
-                                                const match = matches && matches[0] || '';
-                                                const parts = [];
-                                                for (let i = 0, len = match.length; i < len; i += 4) {
-                                                    parts.push(match.substring(i, i + 4));
-                                                }
-                                                if (parts.length) {
-                                                    setCardDetails(prev => ({ ...prev, cardNumber: parts.join(' ') }));
-                                                } else {
-                                                    setCardDetails(prev => ({ ...prev, cardNumber: v }));
-                                                }
-                                            }}
-                                            style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "0.55rem 0.75rem", font: "inherit", outline: "none" }}
-                                            required={selectedPaymentMethod === "card"}
-                                        />
-                                    </label>
-                                    <div style={{ display: "flex", gap: "0.8rem" }}>
-                                        <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.25rem", fontSize: "0.82rem", fontWeight: "600" }}>
-                                            Expiry Date
-                                            <input
-                                                type="text"
-                                                maxLength="5"
-                                                placeholder="MM/YY"
-                                                value={cardDetails.cardExpiry}
-                                                onChange={(e) => {
-                                                    let v = e.target.value.replace(/\D/g, '');
-                                                    if (v.length > 2) {
-                                                        v = v.substring(0, 2) + '/' + v.substring(2, 4);
-                                                    }
-                                                    setCardDetails(prev => ({ ...prev, cardExpiry: v }));
-                                                }}
-                                                style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "0.55rem 0.75rem", font: "inherit", outline: "none" }}
-                                                required={selectedPaymentMethod === "card"}
-                                            />
-                                        </label>
-                                        <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.25rem", fontSize: "0.82rem", fontWeight: "600" }}>
-                                            Security Code (CVV)
-                                            <input
-                                                type="password"
-                                                maxLength="4"
-                                                placeholder="e.g. 123"
-                                                value={cardDetails.cardCvv}
-                                                onChange={(e) => setCardDetails(prev => ({ ...prev, cardCvv: e.target.value.replace(/\D/g, '') }))}
-                                                style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "0.55rem 0.75rem", font: "inherit", outline: "none" }}
-                                                required={selectedPaymentMethod === "card"}
-                                            />
-                                        </label>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* COD notice */}
-                            {selectedPaymentMethod === "cod" && (
-                                <div style={{ marginBottom: "1.2rem", padding: "1rem", borderRadius: "12px", border: "1px dashed var(--line)", backgroundColor: "rgba(45, 106, 79, 0.03)", color: "var(--ok)", fontSize: "0.85rem", lineHeight: "1.4" }}>
-                                    <strong>📝 Cash on Delivery (COD) Commitments:</strong>
-                                    <p style={{ margin: "0.4rem 0 0 0" }}>
-                                        By confirming this method, you agree to pay the tailor the sum of <strong>${activePaymentOrder.amount?.toFixed(2)}</strong> in cash upon physical delivery. The platform fee is covered under our secure buyer agreement.
-                                    </p>
-                                </div>
-                            )}
-
-                            <button
-                                type="submit"
-                                className="primary-btn submit-order-btn"
-                                disabled={actionLoading === activePaymentOrder._id}
-                                style={{ width: "100%", margin: 0 }}
-                            >
-                                {actionLoading === activePaymentOrder._id ? "Authorizing Gateway..." : selectedPaymentMethod === "cod" ? "Confirm COD Tailoring Order" : "Pay $" + activePaymentOrder.amount?.toFixed(2) + " via Visa"}
-                            </button>
-                        </form>
-                    </div>
-                </div>
+                <PaymentGateway
+                    order={activePaymentOrder}
+                    onSuccess={handlePaymentSuccess}
+                    onClose={() => setActivePaymentOrder(null)}
+                />
             )}
         </section>
     );

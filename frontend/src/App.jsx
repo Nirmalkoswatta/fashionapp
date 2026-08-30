@@ -128,30 +128,62 @@ function App() {
         await dispatch(googleLoginThunk({ email, name }));
     };
 
+    // Derive user avatar initials
+    const userInitials = user
+        ? (user.username || user.email || "U")
+              .split(/[\s.@]+/)
+              .slice(0, 2)
+              .map((w) => w[0]?.toUpperCase())
+              .join("")
+        : "U";
+
     if (user) {
         return (
-            <main className="app">
-                <section className="dashboard-shell">
+            <main className="app" style={{ padding: 0, display: "block", minHeight: "100vh" }}>
+                <section className="dashboard-shell" style={{ width: "100%" }}>
+                    {/* ── Premium Topbar ── */}
                     <div className="dashboard-topbar">
-                        <div>
+                        <div className="topbar-brand">
                             <p className="brand">Fashion Girl</p>
-                            <p className="subtitle">
-                                Signed in as <strong>{user.email}</strong> ({user.role})
-                            </p>
+                            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.15rem", marginTop: "0.1rem" }}>
+                                Bespoke Tailoring
+                            </h2>
                         </div>
-                        <button className="secondary-btn" onClick={() => dispatch(logout())} type="button">
-                            Logout
-                        </button>
+
+                        <div className="topbar-right">
+                            {/* Notification Bell */}
+                            <div className="topbar-bell" title="Notifications">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                                </svg>
+                                <span className="bell-badge">3</span>
+                            </div>
+
+                            {/* User Info */}
+                            <div className="topbar-user">
+                                <div className="topbar-avatar">{userInitials}</div>
+                                <div className="topbar-user-info">
+                                    <strong>{user.username || user.email?.split("@")[0]}</strong>
+                                    <span>{user.role}</span>
+                                </div>
+                            </div>
+
+                            <button className="secondary-btn" onClick={() => dispatch(logout())} type="button"
+                                style={{ fontSize: "0.82rem", padding: "0.5rem 0.9rem" }}>
+                                Sign out
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Navigation Tabs */}
+                    {/* ── Navigation Tabs ── */}
                     <nav className="dashboard-tabs">
                         {(user.role === "customer" || user.role === "admin" || user.role === "staff") && (
                             <button
                                 className={`tab-btn ${activeTab === "match" ? "active" : ""}`}
                                 onClick={() => setActiveTab("match")}
                             >
-                                🔍 Find Vendors
+                                ✦ Find Vendors
                             </button>
                         )}
                         {(user.role === "vendor" || user.role === "admin" || user.role === "staff") && (
@@ -159,32 +191,32 @@ function App() {
                                 className={`tab-btn ${activeTab === "upload" ? "active" : ""}`}
                                 onClick={() => setActiveTab("upload")}
                             >
-                                📤 Upload Catalog
+                                ↑ Upload Catalog
                             </button>
                         )}
                         <button
                             className={`tab-btn ${activeTab === "orders" ? "active" : ""}`}
                             onClick={() => setActiveTab("orders")}
                         >
-                            🧵 My Orders
+                            ◈ My Orders
                         </button>
                         <button
                             className={`tab-btn ${activeTab === "chatbot" ? "active" : ""}`}
                             onClick={() => setActiveTab("chatbot")}
                         >
-                            💬 AI Tailor Copilot
+                            ◎ AI Copilot
                         </button>
                         {(user.role === "vendor" || user.role === "admin" || user.role === "staff") && (
                             <button
                                 className={`tab-btn ${activeTab === "admin" ? "active" : ""}`}
                                 onClick={() => setActiveTab("admin")}
                             >
-                                📊 {user.role === "vendor" ? "My Earnings" : "Platform Revenue"}
+                                ◐ {user.role === "vendor" ? "Earnings" : "Revenue"}
                             </button>
                         )}
                     </nav>
 
-                    {/* Content Display based on Active Tab */}
+                    {/* ── Tab Content ── */}
                     <div className="tab-content">
                         {activeTab === "match" && (user.role === "customer" || user.role === "admin" || user.role === "staff") && (
                             <Home onOrderPlaced={() => setActiveTab("orders")} />
@@ -204,8 +236,8 @@ function App() {
     return (
         <main className="app">
             <section className="auth-shell">
-                <p className="brand">Fashion Girl</p>
-                <h1>Style Meets Smart Commerce</h1>
+                <p className="brand">Fashion Girl — Bespoke Platform</p>
+                <h1>Style Meets<br />Smart Commerce</h1>
 
                 {activeError ? <p className="form-error">{activeError}</p> : null}
 

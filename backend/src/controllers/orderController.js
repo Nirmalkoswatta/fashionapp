@@ -122,7 +122,7 @@ async function updateOrderStatus(req, res, next) {
         const userEmail = req.auth.email;
         const userRole = req.auth.role;
 
-        const validStatuses = ["pending", "paid", "designing", "in_progress", "shipped"];
+        const validStatuses = ["pending", "paid", "designing", "in_progress", "shipped", "cancelled"];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ message: "Invalid order status value." });
         }

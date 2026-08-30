@@ -44,7 +44,7 @@ const orderSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["pending", "paid", "designing", "in_progress", "shipped"],
+            enum: ["pending", "paid", "designing", "in_progress", "shipped", "cancelled"],
             default: "pending",
         },
         quantity: {
@@ -55,8 +55,17 @@ const orderSchema = new mongoose.Schema(
         },
         paymentMethod: {
             type: String,
-            enum: ["card", "cod"],
-            default: "card",
+            enum: ["card", "cod", "payhere"],
+            default: "payhere",
+        },
+        // PayHere-specific tracking fields
+        payherePaymentId: {
+            type: String,
+            default: null,
+        },
+        payhereMethod: {
+            type: String, // e.g. "VISA", "MASTER", "AMEX", "EZCASH"
+            default: null,
         },
     },
     {
